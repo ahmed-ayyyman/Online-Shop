@@ -33,3 +33,38 @@ exports.getSubCategoryValidator = [
   param("id").isMongoId().withMessage("Invalid SubCategory ID"),
   validatorMiddleware,
 ];
+
+exports.updateSubCategoryValidator = [
+  param("id").isMongoId().withMessage("Invalid SubCategory ID"),
+
+  // at least one of name or category must be provided
+  body()
+    .custom((value, { req }) => {
+      if (!req.body.name && !req.body.category && !req.body.categoryId) {
+        throw new Error(
+          "At least one field (name or category) is required to update",
+        );
+      }
+      return true;
+    })
+    .bail(),
+
+  body("name")
+    .optional()
+    .trim()
+    .isLength({ min: 2, max: 32 })
+    .withMessage("SubCategory name must be between 2 and 32 characters"),
+
+  // normalize category field
+  body("category").customSanitizer(
+    (val, { req }) => req.body.category || req.body.categoryId,
+  ),
+  body("category").optional().isMongoId().withMessage("Invalid Category ID"),
+
+  validatorMiddleware,
+];
+
+exports.deleteSubCategoryValidator = [
+  param("id").isMongoId().withMessage("Invalid SubCategory ID"),
+  validatorMiddleware,
+];
