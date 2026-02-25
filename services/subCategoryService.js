@@ -24,37 +24,17 @@ exports.getSubCategories = asyncHandler(async (req, res) => {
 // @route POST api/v1/subcategories
 // @access Private
 exports.createSubCategory = asyncHandler(async (req, res, next) => {
-  console.log("req.body:", req.body);
-  const { name } = req.body;
-  let { category } = req.body;
-
-  // allow client to send categoryId or category, or via query/params
-  if (!category)
-    category = req.body.categoryId || req.params.category || req.query.category;
-
-  console.log("name:", name, "category/resolved:", category);
-
-  if (!category) {
-    return next(
-      new ApiError(
-        "Category ID is required in body as 'category' or 'categoryId'",
-        400,
-      ),
-    );
-  }
-
+  const { name, category } = req.body;
   // Check if category exists
   const existingCategory = await CategoryModel.findById(category);
   if (!existingCategory) {
     return next(new ApiError(`No category for this ID: ${category}`, 404));
   }
-
-  // Continue with subcategory creation
-  const slug = slugify(name);
-  const created = await SubCategory.create({ name, slug, category });
-  const subCategory = await SubCategory.findById(created._id).populate(
-    "category",
-  );
+  const subCategory = await SubCategory.create({
+    name,
+    slug: slugify(name),
+    category,
+  });
   res.status(201).json({ data: subCategory });
 });
 // @desc Get a specific subcategory by ID
