@@ -12,17 +12,16 @@ exports.createSubCategoryValidator = [
 
   // accept either `category` or `categoryId` from client
   body().custom((value, { req }) => {
-    if (!req.body.category && !req.body.categoryId) {
-      throw new Error(
-        "Category ID is required (body field 'category' or 'categoryId')",
-      );
+    if (!req.body.category && !req.body.categoryId && !req.params.categoryId) {
+      throw new Error("Category ID is required");
     }
     return true;
   }),
 
   // normalize category value so downstream code can use `req.body.category`
   body("category").customSanitizer(
-    (val, { req }) => req.body.category || req.body.categoryId,
+    (val, { req }) =>
+      req.body.category || req.body.categoryId || req.params.categoryId,
   ),
 
   body("category").isMongoId().withMessage("Invalid Category ID"),

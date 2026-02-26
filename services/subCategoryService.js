@@ -11,7 +11,11 @@ exports.getSubCategories = asyncHandler(async (req, res) => {
   const page = req.query.page * 1 || 1;
   const limit = req.query.limit * 1 || 5;
   const skip = (page - 1) * limit;
-  const subCategories = await SubCategory.find({})
+
+  let filterObject = {};
+  if (req.params.categoryId) filterObject = { category: req.params.categoryId };
+
+  const subCategories = await SubCategory.find(filterObject)
     .skip(skip)
     .limit(limit)
     .populate("category");
@@ -24,6 +28,8 @@ exports.getSubCategories = asyncHandler(async (req, res) => {
 // @route POST api/v1/subcategories
 // @access Private
 exports.createSubCategory = asyncHandler(async (req, res, next) => {
+  // Nested route
+  if (!req.body.category) req.body.category = req.params.categoryId;
   const { name, category } = req.body;
   // Check if category exists
   const existingCategory = await CategoryModel.findById(category);
