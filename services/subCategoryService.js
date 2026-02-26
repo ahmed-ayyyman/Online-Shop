@@ -28,6 +28,8 @@ exports.getSubCategories = asyncHandler(async (req, res) => {
 // @route POST api/v1/subcategories
 // @access Private
 exports.createSubCategory = asyncHandler(async (req, res, next) => {
+  // Nested route
+  if (!req.body.category) req.body.category = req.params.categoryId;
   const { name, category } = req.body;
   // Check if category exists
   const existingCategory = await CategoryModel.findById(category);
