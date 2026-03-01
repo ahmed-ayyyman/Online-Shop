@@ -388,26 +388,6 @@ npm run dev
 # Start production server
 npm run start:prod
 
-# Run tests
-npx jest
-```
-
----
-
-## Testing
-
-The project uses **Jest** and **Supertest** for testing.
-
-```bash
-npx jest
-```
-
-To run tests with coverage:
-
-```bash
-npx jest --coverage
-```
-
 ---
 
 ## Contributing
