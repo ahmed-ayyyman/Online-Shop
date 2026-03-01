@@ -7,13 +7,52 @@ const ApiError = require("../utils/apiError");
 // @route GET api/v1/products
 // @access Public
 exports.getProducts = asyncHandler(async (req, res) => {
+  // 1) Filtering
+  const queryStringObj = { ...req.query };
+  const excludedFields = ["page", "limit", "sort", "fields", "keyword"];
+
+  excludedFields.forEach((field) => delete queryStringObj[field]);
+
+  let queryStr = JSON.stringify(queryStringObj);
+  queryStr = queryStr.replace(/\b(gte|gt|lte|lt)\b/g, (match) => `$${match}`);
+  const filterObj = queryStr && queryStr !== "{}" ? JSON.parse(queryStr) : {};
+
+  // 2) Search — merge into filterObj so countDocuments reflects it too
+  if (req.query.keyword) {
+    filterObj.$or = [
+      { name: { $regex: req.query.keyword, $options: "i" } },
+      { description: { $regex: req.query.keyword, $options: "i" } },
+    ];
+  }
+
+  // 3) Pagination
   const page = req.query.page * 1 || 1;
-  const limit = req.query.limit * 1 || 10;
+  const limit = req.query.limit * 1 || 50;
   const skip = (page - 1) * limit;
 
+  // 4) Build find query
+  let findQuery = Product.find(filterObj).skip(skip).limit(limit);
+
+  // 5) Sorting
+  if (req.query.sort) {
+    const sortBy = req.query.sort.split(",").join(" ");
+    findQuery = findQuery.sort(sortBy);
+  } else {
+    findQuery = findQuery.sort("-createdAt");
+  }
+
+  // 6) Fields limiting
+  if (req.query.fields) {
+    const fields = req.query.fields.split(",").join(" ");
+    findQuery = findQuery.select(fields);
+  } else {
+    findQuery = findQuery.select("-__v");
+  }
+
+  // Execute both queries in parallel
   const [products, totalResults] = await Promise.all([
-    Product.find({}).skip(skip).limit(limit),
-    Product.countDocuments(),
+    findQuery,
+    Product.countDocuments(filterObj),
   ]);
 
   res.status(200).json({
