@@ -2,16 +2,40 @@ const Brand = require("../models/brandModel");
 var slugify = require("slugify");
 const asyncHandler = require("express-async-handler");
 const ApiError = require("../utils/apiError");
+const ApiFeatures = require("../utils/apiFeatures");
 
 // @desc Get list of brands
 // @route GET api/v1/brands
 // @access Public
 exports.getBrands = asyncHandler(async (req, res) => {
-  const page = req.query.page * 1 || 1;
-  const limit = req.query.limit * 1 || 5;
-  const skip = (page - 1) * limit;
-  const brands = await Brand.find({}).skip(skip).limit(limit);
-  res.status(200).json({ results: brands.length, page, data: brands });
+  const page = parseInt(req.query.page, 10) || 1;
+  const limit = parseInt(req.query.limit, 10) || 5;
+
+  const features = new ApiFeatures(Brand.find(), req.query)
+    .filter()
+    .search()
+    .sort()
+    .fields()
+    .paginate();
+
+  const brandsPromise = features.mongooseQuery;
+  const countFeatures = new ApiFeatures(Brand.find(), req.query)
+    .filter()
+    .search();
+  const totalResultsPromise = countFeatures.mongooseQuery.countDocuments();
+
+  const [brands, totalResults] = await Promise.all([
+    brandsPromise,
+    totalResultsPromise,
+  ]);
+
+  res.status(200).json({
+    results: brands.length,
+    totalResults,
+    totalPages: Math.ceil(totalResults / limit),
+    page,
+    data: brands,
+  });
 });
 
 // @desc Get Specific Brand By ID

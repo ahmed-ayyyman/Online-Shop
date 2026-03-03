@@ -2,16 +2,40 @@ const Category = require("../models/categoryModel");
 var slugify = require("slugify");
 const asyncHandler = require("express-async-handler");
 const ApiError = require("../utils/apiError");
+const ApiFeatures = require("../utils/apiFeatures");
 
 // @desc Get list of categories
 // @route GET api/v1/categories
 // @access Public
 exports.getCategories = asyncHandler(async (req, res) => {
-  const page = req.query.page * 1 || 1;
-  const limit = req.query.limit * 1 || 5;
-  const skip = (page - 1) * limit;
-  const categories = await Category.find({}).skip(skip).limit(limit);
-  res.status(200).json({ results: categories.length, page, data: categories });
+  const page = parseInt(req.query.page, 10) || 1;
+  const limit = parseInt(req.query.limit, 10) || 5;
+
+  const features = new ApiFeatures(Category.find(), req.query)
+    .filter()
+    .search()
+    .sort()
+    .fields()
+    .paginate();
+
+  const categoriesPromise = features.mongooseQuery;
+  const countFeatures = new ApiFeatures(Category.find(), req.query)
+    .filter()
+    .search();
+  const totalResultsPromise = countFeatures.mongooseQuery.countDocuments();
+
+  const [categories, totalResults] = await Promise.all([
+    categoriesPromise,
+    totalResultsPromise,
+  ]);
+
+  res.status(200).json({
+    results: categories.length,
+    totalResults,
+    totalPages: Math.ceil(totalResults / limit),
+    page,
+    data: categories,
+  });
 });
 
 // @desc Get Specific Category By ID
