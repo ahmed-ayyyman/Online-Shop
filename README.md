@@ -31,6 +31,9 @@ A RESTful API backend for an e-commerce platform built with **Node.js**, **Expre
 ## Features
 
 - Full **CRUD** operations for Products, Categories, Subcategories, and Brands
+- **Image upload** for categories with automatic resizing and JPEG conversion via Multer + Sharp
+- **Nested routes** — list subcategories scoped to a parent category (`/categories/:categoryId/subcategories`)
+- **Reusable factory handlers** (`handlersFactory.js`) for DRY controller logic across all resources
 - **Filtering** with comparison operators (`gt`, `gte`, `lt`, `lte`)
 - **Full-text search** on product name and description
 - **Sorting** by any field (ascending/descending)
@@ -46,18 +49,21 @@ A RESTful API backend for an e-commerce platform built with **Node.js**, **Expre
 
 ## Tech Stack
 
-| Layer        | Technology                      |
-|--------------|---------------------------------|
-| Runtime      | Node.js                         |
-| Framework    | Express.js 4.x                  |
-| Database     | MongoDB (Mongoose ODM)          |
-| Validation   | express-validator               |
-| Logging      | Morgan                          |
-| Config       | dotenv                          |
-| Slugs        | slugify                         |
-| Async errors | express-async-handler           |
-| Dev server   | Nodemon                         |
-| Testing      | Jest + Supertest                |
+| Layer            | Technology                      |
+|------------------|---------------------------------|
+| Runtime          | Node.js                         |
+| Framework        | Express.js 4.x                  |
+| Database         | MongoDB (Mongoose ODM)          |
+| Validation       | express-validator               |
+| Logging          | Morgan                          |
+| Config           | dotenv                          |
+| Slugs            | slugify                         |
+| Async errors     | express-async-handler           |
+| File uploads     | Multer                          |
+| Image processing | Sharp                           |
+| Unique IDs       | uuid                            |
+| Dev server       | Nodemon                         |
+| Testing          | Jest + Supertest                |
 
 ---
 
@@ -81,12 +87,16 @@ Online-Shop/
 │   ├── brandRoute.js
 │   └── subCategoryRoute.js
 ├── services/                # Business logic / controllers
+│   ├── handlersFactory.js   # Reusable CRUD factory handlers
 │   ├── productService.js
 │   ├── categoryService.js
 │   ├── brandService.js
 │   └── subCategoryService.js
+├── uploads/
+│   └── categories/          # Uploaded & processed category images
 ├── utils/
 │   ├── apiError.js          # Custom error class
+│   ├── apiFeatures.js       # Filtering, sorting, pagination, search
 │   ├── dummyData/           # Database seed scripts
 │   │   ├── faker.js
 │   │   ├── seeder.js
@@ -185,20 +195,25 @@ All responses are in JSON format.
 
 ### Categories
 
-| Method | Endpoint                  | Description             |
-|--------|---------------------------|-------------------------|
-| GET    | `/categories`             | Get all categories      |
-| GET    | `/categories/:id`         | Get a single category   |
-| POST   | `/categories`             | Create a new category   |
-| PUT    | `/categories/:id`         | Update a category       |
-| DELETE | `/categories/:id`         | Delete a category       |
+| Method | Endpoint                                    | Description                              |
+|--------|---------------------------------------------|------------------------------------------|
+| GET    | `/categories`                               | Get all categories                       |
+| GET    | `/categories/:id`                           | Get a single category                    |
+| POST   | `/categories`                               | Create a new category (supports image upload) |
+| PUT    | `/categories/:id`                           | Update a category                        |
+| DELETE | `/categories/:id`                           | Delete a category                        |
+| GET    | `/categories/:categoryId/subcategories`     | Get all subcategories for a category     |
+| POST   | `/categories/:categoryId/subcategories`     | Create a subcategory under a category    |
 
-**Create/Update body:**
+**Create/Update body** (`multipart/form-data` or JSON):
 ```json
 {
-  "name": "Electronics"
+  "name": "Electronics",
+  "image": "<file>"
 }
 ```
+
+> **Note:** When uploading an image, send the request as `multipart/form-data` with the file in the `image` field. The image is automatically resized to 600×600 px and saved as JPEG.
 
 ---
 
@@ -211,6 +226,8 @@ All responses are in JSON format.
 | POST   | `/subcategories`              | Create a new subcategory   |
 | PUT    | `/subcategories/:id`          | Update a subcategory       |
 | DELETE | `/subcategories/:id`          | Delete a subcategory       |
+
+> Subcategories can also be accessed via the nested route `/categories/:categoryId/subcategories` (see [Categories](#categories)).
 
 **Create/Update body:**
 ```json
@@ -295,7 +312,7 @@ The following query parameters are supported on all **list** endpoints (e.g., `G
 | Parameter | Description                                              | Example                          |
 |-----------|----------------------------------------------------------|----------------------------------|
 | `page`    | Page number (default: `1`)                               | `?page=2`                        |
-| `limit`   | Results per page (default: `50`)                         | `?limit=10`                      |
+| `limit`   | Results per page (default: `10`; `50` for products)      | `?limit=10`                      |
 | `sort`    | Comma-separated fields to sort by (`-` for descending)   | `?sort=-price,name`              |
 | `fields`  | Comma-separated fields to include in response            | `?fields=name,price`             |
 | `keyword` | Search term matched against name and description         | `?keyword=apple`                 |
@@ -359,12 +376,21 @@ Common HTTP status codes used:
 | `ratingsAverage`     | Number     |          | 1.0–5.0, rounded to 1 decimal          |
 | `ratingsQuantity`    | Number     |          | Default: 0                             |
 
-### Category / Brand
+### Category
 
-| Field  | Type   | Required | Notes                    |
-|--------|--------|----------|--------------------------|
-| `name` | String | ✅        | Unique                   |
-| `slug` | String |          | Auto-generated from name |
+| Field  | Type   | Required | Notes                          |
+|--------|--------|----------|--------------------------------|
+| `name` | String | ✅        | 3–32 characters, unique        |
+| `slug` | String |          | Auto-generated from name       |
+| `image`| String |          | Filename of uploaded image     |
+
+### Brand
+
+| Field  | Type   | Required | Notes                          |
+|--------|--------|----------|--------------------------------|
+| `name` | String | ✅        | 3–32 characters, unique        |
+| `slug` | String |          | Auto-generated from name       |
+| `image`| String |          | Brand image filename           |
 
 ### SubCategory
 
@@ -387,6 +413,18 @@ npm run dev
 
 # Start production server
 npm run start:prod
+```
+
+---
+
+## Testing
+
+The project uses [Jest](https://jestjs.io/) and [Supertest](https://github.com/ladjs/supertest) for testing.
+
+```bash
+# Run all tests
+npm test
+```
 
 ---
 
