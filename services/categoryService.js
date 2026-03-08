@@ -1,27 +1,17 @@
-const Category = require("../models/categoryModel");
-const slugify = require("slugify");
-const factory = require("./handlersFactory");
-const multer = require("multer");
 const sharp = require("sharp");
-const ApiError = require("../utils/apiError");
 const { v4: uuidv4 } = require("uuid");
 
-// 1) Memory Storage engine
-const storage = multer.memoryStorage();
+const asyncHandler = require("express-async-handler");
+const slugify = require("slugify");
+const factory = require("./handlersFactory");
+const { uploadSingleImage } = require("../middlewares/uploadImageMiddleware");
+const Category = require("../models/categoryModel");
 
-const multerFilter = function (req, file, cb) {
-  if (file.mimetype && file.mimetype.startsWith("image")) {
-    cb(null, true);
-  } else {
-    cb(new ApiError("Only Images allowed", 400), false);
-  }
-};
+// Upload single image
+exports.createCategoryImage = uploadSingleImage("image");
 
-const upload = multer({ storage: storage, fileFilter: multerFilter });
-
-exports.createCategoryImage = upload.single("image");
-
-exports.resizeImage = async (req, res, next) => {
+// Image processing
+exports.resizeImage = asyncHandler(async (req, res, next) => {
   if (!req.file) return next();
 
   const filename = `category-${uuidv4()}-${Date.now()}.jpeg`;
@@ -34,7 +24,7 @@ exports.resizeImage = async (req, res, next) => {
   // Save the filename on the body so it can be stored in the DB
   req.body.image = filename;
   next();
-};
+});
 
 // @desc Get list of categories
 // @route GET api/v1/categories
