@@ -13,14 +13,31 @@ const {
   updateProduct,
   deleteProduct,
 } = require("../services/productService");
+const {
+  uploadProductImages,
+  resizeProductImages,
+} = require("../middlewares/uploadMiddleware");
 
 const router = express.Router();
 
-router.route("/").post(createProductValidator, createProduct).get(getProducts);
+router
+  .route("/")
+  .post(
+    uploadProductImages,
+    resizeProductImages,
+    createProductValidator,
+    createProduct,
+  )
+  .get(getProducts);
 router
   .route("/:id")
   .get(getProductValidator, getProduct)
-  .put(updateProductValidator, updateProduct)
+  .put(
+    uploadProductImages,
+    resizeProductImages,
+    updateProductValidator,
+    updateProduct,
+  )
   .delete(deleteProductValidator, deleteProduct);
 
 module.exports = router;
