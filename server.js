@@ -10,6 +10,7 @@ const categoryRoute = require("./routes/categoryRoute");
 const subcategoryRoute = require("./routes/subCategoryRoute");
 const brandRoute = require("./routes/brandRoute");
 const productRoute = require("./routes/productRoute");
+const userRoute = require("./routes/userRoute");
 
 // Connect with db
 dbConnection();
@@ -20,8 +21,6 @@ const app = express();
 // Middlewares
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-// serve uploads
-app.use("/uploads", express.static("uploads"));
 
 if (process.env.NODE_ENV === "development") {
   app.use(morgan("dev"));
@@ -33,6 +32,7 @@ app.use("/api/v1/categories", categoryRoute);
 app.use("/api/v1/subcategories", subcategoryRoute);
 app.use("/api/v1/brands", brandRoute);
 app.use("/api/v1/products", productRoute);
+app.use("/api/v1/users", userRoute);
 
 app.all("*", (req, res, next) => {
   next(new ApiError(`Can't find this route :${req.originalUrl}`, 400));
