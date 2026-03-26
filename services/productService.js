@@ -10,7 +10,7 @@ const factory = require("./handlersFactory");
 exports.getProducts = (req, res, next) => {
   // keep previous default limit of 50 when not provided
   if (!req.query.limit) req.query.limit = "50";
-  return factory.getAll(Product, ["category", "subCategories", "brand"])(
+  return factory.getAll(Product, "Product", "category subCategories brand")(
     req,
     res,
     next,
@@ -20,18 +20,14 @@ exports.getProducts = (req, res, next) => {
 // @desc Get Specific Product By ID
 // @route GET api/v1/products/:id
 // @access Public
-exports.getProduct = factory.getOne(Product, [
-  "category",
-  "subCategories",
-  "brand",
-]);
+exports.getProduct = factory.getOne(Product, "category subCategories brand");
 
 // @desc Create Product
 // @route POST api/v1/products
 // @access Private
 exports.createProduct = (req, res, next) => {
   if (req.body.name) req.body.slug = slugify(req.body.name);
-  return factory.createOne(Product, ["category", "subCategories", "brand"])(
+  return factory.createOne(Product, "category subCategories brand")(
     req,
     res,
     next,
@@ -43,7 +39,7 @@ exports.createProduct = (req, res, next) => {
 // @access Private
 exports.updateProduct = (req, res, next) => {
   if (req.body.name) req.body.slug = slugify(req.body.name);
-  return factory.updateOne(Product, ["category", "subCategories", "brand"])(
+  return factory.updateOne(Product, "category subCategories brand")(
     req,
     res,
     next,

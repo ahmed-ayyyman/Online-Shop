@@ -5,13 +5,23 @@ const ApiError = require("../utils/apiError");
 const CategoryModel = require("../models/categoryModel");
 const factory = require("./handlersFactory");
 
+// Middleware: set filterObj for nested route GET /categories/:categoryId/subcategories
+exports.setFilterObj = (req, res, next) => {
+  if (req.params.categoryId)
+    req.filterObj = { category: req.params.categoryId };
+  next();
+};
+
+// Middleware: set category from params for nested route POST /categories/:categoryId/subcategories
+exports.setCategoryIdToBody = (req, res, next) => {
+  if (!req.body.category) req.body.category = req.params.categoryId;
+  next();
+};
+
 // @desc Get list of all subcategories
 // @route GET api/v1/subcategories
 // @access Public
-exports.getSubCategories = (req, res, next) => {
-  if (req.params.categoryId) req.filter = { category: req.params.categoryId };
-  return factory.getAll(SubCategory, "category")(req, res, next);
-};
+exports.getSubCategories = factory.getAll(SubCategory, undefined, "category");
 
 // @desc Create a subcategory
 // @route POST api/v1/subcategories
@@ -24,7 +34,7 @@ exports.createSubCategory = (req, res, next) => {
   return factory.createOne(SubCategory)(req, res, next);
 };
 // @desc Get a specific subcategory by ID
-// @route GET api/v1/categories/:id
+// @route GET api/v1/subcategories/:id
 // @access Public
 exports.getSubCategory = factory.getOne(SubCategory, "category");
 
@@ -40,6 +50,6 @@ exports.updateSubCategory = (req, res, next) => {
 };
 
 // @desc Delete a specific subcategory by ID
-// @route Delete api/v1/subcategories/:id
+// @route DELETE api/v1/subcategories/:id
 // @access Private
 exports.deleteSubCategory = factory.deleteOne(SubCategory);

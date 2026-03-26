@@ -2,40 +2,37 @@ class ApiFeatures {
   constructor(mongooseQuery, queryString) {
     this.mongooseQuery = mongooseQuery;
     this.queryString = queryString;
+    this.filterObj = {};
   }
 
   filter() {
     const queryStringObj = { ...this.queryString };
     const excludedFields = ["page", "limit", "sort", "fields", "keyword"];
-
     excludedFields.forEach((field) => delete queryStringObj[field]);
 
     let queryStr = JSON.stringify(queryStringObj);
     queryStr = queryStr.replace(/\b(gte|gt|lte|lt)\b/g, (match) => `$${match}`);
+    this.filterObj = queryStr && queryStr !== "{}" ? JSON.parse(queryStr) : {};
 
-    const filterObj = queryStr && queryStr !== "{}" ? JSON.parse(queryStr) : {};
-    this.mongooseQuery = this.mongooseQuery.find(filterObj);
+    this.mongooseQuery = this.mongooseQuery.find(this.filterObj);
     return this;
   }
 
-  search() {
+  search(modelName) {
     if (this.queryString.keyword) {
-      const keyword = this.queryString.keyword;
-      const searchRegex = { $regex: keyword, $options: "i" };
-      const searchCond = {
-        $or: [{ name: searchRegex }, { description: searchRegex }],
-      };
-
-      // Merge search condition with any existing filters on the query.
-      const currentFilter = this.mongooseQuery.getQuery() || {};
-      let mergedFilter = {};
-      if (Object.keys(currentFilter).length === 0) {
-        mergedFilter = searchCond;
+      const query = {};
+      if (modelName === "Product") {
+        query.$or = [
+          { name: { $regex: this.queryString.keyword, $options: "i" } },
+          { description: { $regex: this.queryString.keyword, $options: "i" } },
+        ];
       } else {
-        mergedFilter = { $and: [currentFilter, searchCond] };
+        query.$or = [
+          { name: { $regex: this.queryString.keyword, $options: "i" } },
+        ];
       }
-
-      this.mongooseQuery = this.mongooseQuery.find(mergedFilter);
+      this.mongooseQuery = this.mongooseQuery.find(query);
+      this.filterObj = { ...this.filterObj, ...query };
     }
     return this;
   }
@@ -50,7 +47,7 @@ class ApiFeatures {
     return this;
   }
 
-  fields() {
+  limitFields() {
     if (this.queryString.fields) {
       const fields = this.queryString.fields.split(",").join(" ");
       this.mongooseQuery = this.mongooseQuery.select(fields);
@@ -61,10 +58,12 @@ class ApiFeatures {
   }
 
   paginate() {
-    const page = parseInt(this.queryString.page, 10) || 1;
-    const limit = parseInt(this.queryString.limit, 10) || 10;
+    const page = this.queryString.page * 1 || 1;
+    const limit = this.queryString.limit * 1 || 50;
     const skip = (page - 1) * limit;
+
     this.mongooseQuery = this.mongooseQuery.skip(skip).limit(limit);
+    this.paginationResult = { page, limit };
     return this;
   }
 }
